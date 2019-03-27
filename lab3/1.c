@@ -147,7 +147,7 @@ void CalculateFileBits(FILE* fStream, char* fileName){
         ++bytesRead;
     }
 
-    printf("%d %s 1:%d 0:%d \n", getpid(), fileName, OnesAmount, ZeroesAmount);
+    printf("%d %s %d 1:%d 0:%d \n", getpid(), fileName, bytesRead, OnesAmount, ZeroesAmount);
 }
 
 void allocAndSetNewValue(char** dest, char** newValue){
