@@ -6,7 +6,7 @@
         {
             "label": "gcc",
             "type": "shell",
-            "command": "gcc -g list.c 1.c",
+            "command": "gcc -g 1.c",
             "group": {
                 "kind": "build",
                 "isDefault": true
