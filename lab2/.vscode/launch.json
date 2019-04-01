@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/a.out",
+            "program": "${workspaceFolder}/1",
             "args": ["/usr/bin",  "1", "100000"],
             ///home/actualdennis/Documents/testfolder
             ///usr/bin
