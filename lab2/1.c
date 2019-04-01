@@ -1,4 +1,5 @@
 #include "list.h"
+#include "arraylist.h"
 #include <sys/types.h> 
 #include <sys/stat.h>
 #include <dirent.h>
@@ -13,7 +14,7 @@ static int minSize;
 
 static int maxSize;
 
-void FindDuplicates(char* directoryFullPath, Node** listHead);
+void FindDuplicates(char* directoryFullPath, arraylist** listHead);
 
 int IsDots(char* name);
 
@@ -57,33 +58,33 @@ int main(int argc, char* argv[]){
 
     fullFilePath = strcpy(fullFilePath,argv[1]);
 
-    Node* list = list_create();
+    arraylist* List = arraylist_create();
 
-    FindDuplicates(fullFilePath, &list);
+    FindDuplicates(fullFilePath, &List);
 
-    int listSize = list_size(list);
+    int listSize = List->size;
 
     FILE* firstStream;
     FILE* secondStream;
-    NodeInfo tempfirstNode;
-    NodeInfo tempsecondNode;
     int result = 0;
+    char* firstFName;
+    char* secondFName;
 
     for(int i = 0; i < listSize; ++i){
 
-        tempfirstNode = list_get(list, i);
-        firstStream = fopen(tempfirstNode.fileName, "r");
+        firstFName = arraylist_get(List, i);
+        firstStream = fopen(firstFName, "r");
 
         if(firstStream == NULL){
             ++errors;
-            fprintf(stderr, "%s: Error opening file %s %s\n", programName,tempfirstNode.fileName, strerror(errno));
+            fprintf(stderr, "%s: Error opening file %s %s\n", programName,firstFName, strerror(errno));
             continue;
         }
 
         for(int j = i + 1; j < listSize; ++j){
             fseek(firstStream, 0, 0);
-            tempsecondNode = list_get(list, j);
-            secondStream = fopen(tempsecondNode.fileName, "r");
+            secondFName = arraylist_get(List, j);
+            secondStream = fopen(secondFName, "r");
 
             if(secondStream == NULL){
                 continue;
@@ -91,7 +92,7 @@ int main(int argc, char* argv[]){
             
             int res = CompareFiles(firstStream, secondStream);
             if(res){
-                printf("%s %s\n", tempfirstNode.fileName, tempsecondNode.fileName);
+                printf("%s %s\n", firstFName, secondFName);
                 ++result;
             }
 
@@ -118,7 +119,7 @@ void allocAndSetNewValue(char** dest, char** newValue){
     strcpy(*dest,*newValue);
 }
 
-void FindDuplicates(char* directoryFullPath, Node** listHead){
+void FindDuplicates(char* directoryFullPath, arraylist** listHead){
     dirent* dirInfo;
     char* tempFileInfoError;
 
@@ -133,7 +134,6 @@ void FindDuplicates(char* directoryFullPath, Node** listHead){
         return;
     }
 
-    NodeInfo value;
     errno = 0;
     result = calloc(1, strlen(directoryFullPath) + 1);
     allocAndSetNewValue(&result, &directoryFullPath);
@@ -167,8 +167,7 @@ void FindDuplicates(char* directoryFullPath, Node** listHead){
             
 
             if((fileInfo.st_size > minSize) && (fileInfo.st_size < maxSize)){               
-                value.fileName = result;
-                list_insertLast(*listHead, value);
+                arraylist_add(*listHead, result);
                 allocAndSetNewValue(&result, &directoryFullPath);
                 continue;
             }
