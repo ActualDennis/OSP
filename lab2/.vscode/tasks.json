@@ -6,7 +6,7 @@
         {
             "label": "gcc",
             "type": "shell",
-            "command": "gcc -g -o 1 1.c arraylist.c -lm",
+            "command": "gcc -g -o 1 1.c arraylist.c",
             "group": {
                 "kind": "build",
                 "isDefault": true

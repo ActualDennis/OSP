@@ -1,4 +1,3 @@
-#include "list.h"
 #include <sys/types.h> 
 #include <sys/stat.h>
 #include <dirent.h>
@@ -8,15 +7,16 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include "arraylist.h"
 
 
 typedef struct dirent dirent;
 
-void FindFiles(char* directoryFullPath, Node** listHead);
+void FindFiles(char* directoryFullPath,  arraylist **listHead);
 
 void CalculateFileBits(FILE* fStream, char* fileName);
 
-void ProcessFile(int index, Node* list, int processIndex);
+void ProcessFile(int index, arraylist* list, int processIndex);
 
 int IsDots(char* name);
 
@@ -55,11 +55,11 @@ int main(int argc, char* argv[]){
 
     int PROCESSES_MAX = atoi(argv[2]);
 
-    Node* list = list_create();
+    arraylist *List = arraylist_create();
 
-    FindFiles(fullFilePath, &list);
+    FindFiles(fullFilePath, &List);
 
-    int listSize = list_size(list);
+    int listSize = List->size;
 
     int curr_processes_amount = 0;
 
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]){
 
 
         if(pid == 0){
-            ProcessFile(i, list, curr_processes_amount);
+            ProcessFile(i, List, curr_processes_amount);
             break;
         }
     
@@ -104,27 +104,22 @@ int main(int argc, char* argv[]){
 
 }
 
-void ProcessFile(int index, Node* list, int processIndex){
-    NodeInfo tempNode;
+void ProcessFile(int index, arraylist* list, int processIndex){
+    char* firstFName;
     FILE* fStream;
     char* tempFileInfoError;
 
-    tempNode = list_get(list, index);
-    fStream = fopen(tempNode.fileName, "r");
+    firstFName = arraylist_get(list, index);
+    fStream = fopen(firstFName, "r");
 
     if(fStream == NULL){
-        tempFileInfoError = calloc(sizeof(char),256);
-        strcat(tempFileInfoError, programName);
-        strcat(tempFileInfoError, ": Error opening file ");
-        strcat(tempFileInfoError, tempNode.fileName);
-        perror(tempFileInfoError);
-        free(tempFileInfoError);
+        fprintf(stderr, "%s: Error opening file %s %s\n", programName, firstFName, strerror(errno));
         return;
     }
 
-    printf("\n %d:", processIndex);
+    printf("%d:", processIndex);
 
-    CalculateFileBits(fStream, tempNode.fileName);
+    CalculateFileBits(fStream, firstFName);
 
     fclose(fStream);
 }
@@ -151,21 +146,19 @@ void CalculateFileBits(FILE* fStream, char* fileName){
 }
 
 void allocAndSetNewValue(char** dest, char** newValue){
-    *dest =  calloc(sizeof(char), strlen(*newValue) + 1);
-    char* tempFileInfoError;
+    *dest = calloc(sizeof(char), strlen(*newValue) + 1);
+    char *tempFileInfoError;
 
-    if(dest == NULL){
-        tempFileInfoError = calloc(sizeof(char),256);
-        strcat(tempFileInfoError, programName);
-        strcat(tempFileInfoError, ": Error allocating memory ");
-        perror(tempFileInfoError);
-        free(tempFileInfoError);
+    if (dest == NULL)
+    {
+        fprintf(stderr, "%s: Error allocating memory %s\n", programName, strerror(errno));
+        return;
     }
 
-    strcpy(*dest,*newValue);
+    strcpy(*dest, *newValue);
 }
 
-void FindFiles(char* directoryFullPath, Node** listHead){
+void FindFiles(char* directoryFullPath,  arraylist **listHead){
     dirent* dirInfo;
     char* tempFileInfoError;
 
@@ -176,16 +169,10 @@ void FindFiles(char* directoryFullPath, Node** listHead){
     DIR* path = opendir (directoryFullPath);
 
     if(path == NULL){
-        tempFileInfoError = calloc(sizeof(char), 256);
-        tempFileInfoError = strcat(tempFileInfoError, programName);
-        tempFileInfoError = strcat(tempFileInfoError, ": Error opening dir");
-        tempFileInfoError = strcat(tempFileInfoError, directoryFullPath);
-        perror(tempFileInfoError);
-        free(tempFileInfoError);
+        fprintf(stderr, "%s: Error opening dir %s %s\n", programName, directoryFullPath, strerror(errno));
         return;
     }
 
-    NodeInfo value;
     errno = 0;
     result = calloc(1, strlen(directoryFullPath) + 1);
     allocAndSetNewValue(&result, &directoryFullPath);
@@ -201,11 +188,7 @@ void FindFiles(char* directoryFullPath, Node** listHead){
         result = realloc(result, resultLen + entryLen + 2);
 
         if(result == NULL){
-            tempFileInfoError = calloc(sizeof(char),256);
-            strcat(tempFileInfoError, ": Couldn't reallocate memory ");
-            strcat(tempFileInfoError, result);
-            perror(tempFileInfoError);
-            free(tempFileInfoError);
+            fprintf(stderr, "%s: Couldn't reallocate memory %s\n", programName, strerror(errno));
             result = calloc(1, strlen(directoryFullPath) + 1);
             allocAndSetNewValue(&result, &directoryFullPath);
             continue;
@@ -216,18 +199,12 @@ void FindFiles(char* directoryFullPath, Node** listHead){
         if((dirInfo->d_type == DT_REG)){
 
             if(stat(result, &fileInfo) == -1){
-                tempFileInfoError = calloc(sizeof(char),256);
-                strcat(tempFileInfoError, programName);
-                strcat(tempFileInfoError, ": Error retrieving file info ");
-                strcat(tempFileInfoError, result);
-                perror(tempFileInfoError);
-                free(tempFileInfoError);
+                fprintf(stderr, "%s: Error retrieving file info %s\n", programName, strerror(errno));
                 allocAndSetNewValue(&result, &directoryFullPath);
                 continue;
             }
-                      
-            value.fileName = result;
-            list_insertLast(*listHead, value);
+
+            arraylist_add(*listHead, result);
             allocAndSetNewValue(&result, &directoryFullPath);
             continue;
 
@@ -240,13 +217,13 @@ void FindFiles(char* directoryFullPath, Node** listHead){
         allocAndSetNewValue(&result, &directoryFullPath);
     }
 
+    if (closedir(path) == -1)
+    {
+        fprintf(stderr, "%s: Error closing dir %s\n", programName, strerror(errno));
+    }
+
     if((errno != 0) && (dirInfo == NULL)){
-        tempFileInfoError = calloc(sizeof(char),256);
-        strcat(tempFileInfoError, programName);
-        strcat(tempFileInfoError, ": Error opening dir ");
-        strcat(tempFileInfoError, directoryFullPath);
-        perror(tempFileInfoError);
-        free(tempFileInfoError);
+         fprintf(stderr, "%s: Error opening dir %s %s\n", programName, directoryFullPath, strerror(errno));
     }
 }
 

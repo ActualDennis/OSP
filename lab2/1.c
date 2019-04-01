@@ -7,7 +7,6 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include <math.h>
 
 typedef struct dirent dirent;
 
