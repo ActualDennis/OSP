@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/a.out",
-            "args": ["/etc",  "1", "100000"],
+            "args": ["/usr",  "1", "100000"],
             ///home/actualdennis/Documents/testfolder
             ///usr/bin
             "stopAtEntry": false,

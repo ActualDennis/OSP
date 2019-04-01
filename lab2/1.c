@@ -21,6 +21,8 @@ int CompareFiles(FILE* first, FILE* second);
 
 static char* programName;
 
+static int errors = 0;
+
 
 int main(int argc, char* argv[]){
     dirent* dirInfo;
@@ -65,6 +67,7 @@ int main(int argc, char* argv[]){
     FILE* secondStream;
     NodeInfo tempfirstNode;
     NodeInfo tempsecondNode;
+    int result = 0;
 
     for(int i = 0; i < listSize; ++i){
 
@@ -72,14 +75,10 @@ int main(int argc, char* argv[]){
         firstStream = fopen(tempfirstNode.fileName, "r");
 
         if(firstStream == NULL){
-            char* temp = calloc(sizeof(char), 256);
-            temp = strcat(temp, argv[0]);
-            temp = strcat(temp, " : ");
-            temp = strcat(temp, tempfirstNode.fileName);
-            perror(temp);
+            ++errors;
+            fprintf(stderr, "%s: Error opening file %s %s\n", programName,tempfirstNode.fileName, strerror(errno));
             continue;
         }
-        char* tempError;
 
         for(int j = i + 1; j < listSize; ++j){
             fseek(firstStream, 0, 0);
@@ -93,6 +92,7 @@ int main(int argc, char* argv[]){
             int res = CompareFiles(firstStream, secondStream);
             if(res){
                 printf("%s %s\n", tempfirstNode.fileName, tempsecondNode.fileName);
+                ++result;
             }
 
             fclose(secondStream);
@@ -101,6 +101,9 @@ int main(int argc, char* argv[]){
         fclose(firstStream);
     }
 
+    printf("\n%d\n", result);
+    printf("\n%d\n", errors);
+
 }
 
 void allocAndSetNewValue(char** dest, char** newValue){
@@ -108,11 +111,8 @@ void allocAndSetNewValue(char** dest, char** newValue){
     char* tempFileInfoError;
 
     if(dest == NULL){
-        tempFileInfoError = calloc(sizeof(char),256);
-        strcat(tempFileInfoError, programName);
-        strcat(tempFileInfoError, ": Error allocating memory ");
-        perror(tempFileInfoError);
-        free(tempFileInfoError);
+        fprintf(stderr, "%s: Error allocating memory %s\n", programName, strerror(errno));
+        return;
     }
 
     strcpy(*dest,*newValue);
@@ -129,15 +129,10 @@ void FindDuplicates(char* directoryFullPath, Node** listHead){
     DIR* path = opendir (directoryFullPath);
 
     if(path == NULL){
-        tempFileInfoError = calloc(sizeof(char), 256);
-        tempFileInfoError = strcat(tempFileInfoError, programName);
-        tempFileInfoError = strcat(tempFileInfoError, ": Error opening dir");
-        perror(tempFileInfoError);
-        free(tempFileInfoError);
+        fprintf(stderr, "%s: Error opening dir %s %s\n", programName,directoryFullPath, strerror(errno));
         return;
     }
 
-    NodeInfo value2;
     NodeInfo value;
     errno = 0;
     result = calloc(1, strlen(directoryFullPath) + 1);
@@ -154,11 +149,7 @@ void FindDuplicates(char* directoryFullPath, Node** listHead){
         result = realloc(result, resultLen + entryLen + 2);
 
         if(result == NULL){
-            tempFileInfoError = calloc(sizeof(char),256);
-            strcat(tempFileInfoError, ": Couldn't reallocate memory ");
-            strcat(tempFileInfoError, result);
-            perror(tempFileInfoError);
-            free(tempFileInfoError);
+            fprintf(stderr, "%s: Couldn't reallocate memory %s\n", programName, strerror(errno));
             result = calloc(1, strlen(directoryFullPath) + 1);
             allocAndSetNewValue(&result, &directoryFullPath);
             continue;
@@ -169,12 +160,7 @@ void FindDuplicates(char* directoryFullPath, Node** listHead){
         if((dirInfo->d_type == DT_REG)){
 
             if(stat(result, &fileInfo) == -1){
-                tempFileInfoError = calloc(sizeof(char),256);
-                strcat(tempFileInfoError, programName);
-                strcat(tempFileInfoError, ": Error retrieving file info ");
-                strcat(tempFileInfoError, result);
-                perror(tempFileInfoError);
-                free(tempFileInfoError);
+                fprintf(stderr, "%s: Error retrieving file info %s\n", programName, strerror(errno));
                 allocAndSetNewValue(&result, &directoryFullPath);
                 continue;
             }
@@ -195,26 +181,24 @@ void FindDuplicates(char* directoryFullPath, Node** listHead){
         allocAndSetNewValue(&result, &directoryFullPath);
     }
 
+    if(closedir(path) == -1){
+         fprintf(stderr, "%s: Error closing dir %s\n", programName, strerror(errno));
+    }
+
     if((errno != 0) && (dirInfo == NULL)){
-        tempFileInfoError = calloc(sizeof(char),256);
-        strcat(tempFileInfoError, programName);
-        strcat(tempFileInfoError, ": Error opening dir ");
-        free(tempFileInfoError);
-        perror(tempFileInfoError);
+        fprintf(stderr, "%s: Error opening dir %s %s\n", programName,directoryFullPath, strerror(errno));
     }
 }
 
 int CompareFiles(FILE* first, FILE* second){
     char ch1 = getc(first); 
     char ch2 = getc(second);    
-    int areEqual = 1;
 
     while (ch1 != EOF && ch2 != EOF) 
     {             
         if (ch1 != ch2) 
         { 
-            areEqual = 0; 
-            break;
+            return 0;
         } 
     
         // fetching character until end of file 
@@ -222,13 +206,9 @@ int CompareFiles(FILE* first, FILE* second){
         ch2 = getc(second); 
     }
 
-    if((ch1 == EOF) && (ch2 == EOF)){
-        areEqual = 1;
-    }else {
-        areEqual = 0;
-    }
+    if((ch1 == EOF) && (ch2 == EOF))
+        return 1;
 
-    return areEqual;
 }
 
 int IsDots(char* name){
