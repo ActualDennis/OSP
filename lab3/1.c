@@ -8,13 +8,13 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include "arraylist.h"
-
+#define FILE_BUFFER_SIZE 80196
 
 typedef struct dirent dirent;
 
 void FindFiles(char* directoryFullPath,  arraylist **listHead);
 
-void CalculateFileBits(FILE* fStream, char* fileName);
+void CalculateFileBits(FILE* fStream, char* fileName, int bufferSize);
 
 void ProcessFile(int index, arraylist* list, int processIndex);
 
@@ -119,30 +119,46 @@ void ProcessFile(int index, arraylist* list, int processIndex){
 
     printf("%d:", processIndex);
 
-    CalculateFileBits(fStream, firstFName);
+    CalculateFileBits(fStream, firstFName, FILE_BUFFER_SIZE);
 
     fclose(fStream);
 }
 
-void CalculateFileBits(FILE* fStream, char* fileName){
-    int bytesRead = 0;
+void CalculateFileBits(FILE* fStream, char* fileName, int bufferSize){
+    int bytesReadTotal = 0;
     int OnesAmount = 0;
     int ZeroesAmount = 0;
-    char ch1;
-    while(!feof(fStream)){
-        ch1 = getc(fStream);
+    char* buffer = calloc(1, bufferSize);
 
-        for(int i = 1; i < 255; i = i * 2){
-            if((ch1 & i) == i)
-                ++OnesAmount;
-            else
-                ++ZeroesAmount;               
+    while(1){
+        size_t bytesRead = fread(buffer, 1, 1024, fStream );
+
+        if(bytesRead == 0)
+            break;
+
+        for(int byte = 0 ; byte < bytesRead; ++byte){
+
+            for(int i = 1; i < 255; i = i * 2){
+
+                if((buffer[byte] & i) == i)
+                    ++OnesAmount;
+                else
+                    ++ZeroesAmount;               
+            }
         }
 
-        ++bytesRead;
+        bytesReadTotal += bytesRead;
+
+        if(feof(fStream)){ //exclude null byte at the end.
+            if(ZeroesAmount != 0){
+                ZeroesAmount -= 8;
+                --bytesReadTotal;
+            }
+            break;
+        }
     }
 
-    printf("%d %s %d 1:%d 0:%d \n", getpid(), fileName, bytesRead, OnesAmount, ZeroesAmount);
+    printf("%d %s %d 1:%d 0:%d \n", getpid(), fileName, bytesReadTotal, OnesAmount, ZeroesAmount);
 }
 
 void allocAndSetNewValue(char** dest, char** newValue){
