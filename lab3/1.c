@@ -7,20 +7,28 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include "arraylist.h"
+#include <sys/time.h>
+#include <time.h>
+
 #define FILE_BUFFER_SIZE 80196
 
 typedef struct dirent dirent;
 
-void FindFiles(char* directoryFullPath,  arraylist **listHead);
+void FindFiles(char* directoryFullPath);
 
 void CalculateFileBits(FILE* fStream, char* fileName, int bufferSize);
 
-void ProcessFile(int index, arraylist* list, int processIndex);
+void ProcessFile(char* fileName, int processIndex);
 
 int IsDots(char* name);
 
-static char* programName;
+void NewProcess(char* filePath);
+
+char* programName;
+
+int curr_processes_amount = 0;
+
+int PROCESSES_MAX = 0;
 
 
 int main(int argc, char* argv[]){
@@ -53,85 +61,51 @@ int main(int argc, char* argv[]){
 
     fullFilePath = strcpy(fullFilePath,argv[1]);
 
-    int PROCESSES_MAX = atoi(argv[2]);
+    PROCESSES_MAX = atoi(argv[2]);
 
-    arraylist *List = arraylist_create();
+    struct timeval  tv1, tv2;
+    gettimeofday(&tv1, NULL);
 
-    FindFiles(fullFilePath, &List);
+    FindFiles(fullFilePath);
 
-    int listSize = List->size;
-
-    int curr_processes_amount = 0;
-
-    int MainProcessPid = getpid();
-
-    for(int i = 0; i < listSize; ++i){
-
-        pid_t pid = -2;
-
-        int IsMainProcess = (MainProcessPid == getpid());
-
-        if(IsMainProcess){
-
-            if(curr_processes_amount < PROCESSES_MAX){
-
-            pid = fork();
-            ++curr_processes_amount;
-
-        } else if (curr_processes_amount >= PROCESSES_MAX){
-
-            int proc_stat = 0;
-
-            for(int i = 0; i < curr_processes_amount; ++i){
-                
-                if(wait(&proc_stat) == -1)
-                    break;
-            }
-
-            curr_processes_amount = 0;
-            --i;
-            }
-        }
-
-
-        if(pid == 0){
-            ProcessFile(i, List, curr_processes_amount);
-            break;
-        }
-    
+    //wait for rest of processes to complete
+    for(int i = 0; i < curr_processes_amount; ++i){              
+        wait(NULL);
     }
 
+    gettimeofday(&tv2, NULL);
 
+  //  printf ("Total time = %f seconds\n", (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec));
 }
 
-void ProcessFile(int index, arraylist* list, int processIndex){
-    char* firstFName;
+void ProcessFile(char* fileName, int processIndex){
     FILE* fStream;
-    char* tempFileInfoError;
 
-    firstFName = arraylist_get(list, index);
-    fStream = fopen(firstFName, "r");
+    fStream = fopen(fileName, "r");
 
     if(fStream == NULL){
-        fprintf(stderr, "%s: Error opening file %s %s\n", programName, firstFName, strerror(errno));
+        fprintf(stderr, "%s: Error opening file %s %s\n", programName, fileName, strerror(errno));
         return;
     }
 
-    printf("%d:", processIndex);
+   // printf("%d:", processIndex);
 
-    CalculateFileBits(fStream, firstFName, FILE_BUFFER_SIZE);
+    CalculateFileBits(fStream, fileName, FILE_BUFFER_SIZE);
 
     fclose(fStream);
+
+    free(fileName);
 }
 
 void CalculateFileBits(FILE* fStream, char* fileName, int bufferSize){
     int bytesReadTotal = 0;
     int OnesAmount = 0;
     int ZeroesAmount = 0;
+    size_t bytesRead;
     char* buffer = calloc(1, bufferSize);
 
     while(1){
-        size_t bytesRead = fread(buffer, 1, bufferSize, fStream );
+        bytesRead = fread(buffer, 1, bufferSize, fStream );
 
         if(bytesRead == 0)
             break;
@@ -174,14 +148,13 @@ void allocAndSetNewValue(char** dest, char** newValue){
     strcpy(*dest, *newValue);
 }
 
-void FindFiles(char* directoryFullPath,  arraylist **listHead){
+void FindFiles(char* directoryFullPath){
     dirent* dirInfo;
     char* tempFileInfoError;
 
     char* result;
     struct stat fileInfo;
 
-    DIR* tempDir;
     DIR* path = opendir (directoryFullPath);
 
     if(path == NULL){
@@ -192,6 +165,7 @@ void FindFiles(char* directoryFullPath,  arraylist **listHead){
     errno = 0;
     result = calloc(1, strlen(directoryFullPath) + 1);
     allocAndSetNewValue(&result, &directoryFullPath);
+
     while(dirInfo = readdir(path)){
 
         if(dirInfo->d_name == NULL)
@@ -212,6 +186,7 @@ void FindFiles(char* directoryFullPath,  arraylist **listHead){
 
         strcat(result, "/");
         strcat(result, dirInfo->d_name);
+
         if((dirInfo->d_type == DT_REG)){
 
             if(stat(result, &fileInfo) == -1){
@@ -220,13 +195,35 @@ void FindFiles(char* directoryFullPath,  arraylist **listHead){
                 continue;
             }
 
-            arraylist_add(*listHead, result);
+            if (curr_processes_amount == PROCESSES_MAX)
+            {
+                int killed = 0;
+                pid_t terminationResult;
+                int status = 0; 
+
+                //only kill terminated processes
+
+                while ((terminationResult = waitpid(-1, &status, WNOHANG)) > 0)
+                {
+                    ++killed;
+                }
+
+                if(!killed){
+                    wait(NULL);
+                }
+
+                curr_processes_amount -= killed;
+            }
+
+            ++curr_processes_amount;
+            NewProcess(result);
+
             allocAndSetNewValue(&result, &directoryFullPath);
             continue;
 
         }
         else if((dirInfo->d_type == DT_DIR) && (!IsDots(dirInfo->d_name))){
-            FindFiles(result, listHead);
+            FindFiles(result);
         }
         
         free(result);
@@ -240,6 +237,20 @@ void FindFiles(char* directoryFullPath,  arraylist **listHead){
 
     if((errno != 0) && (dirInfo == NULL)){
          fprintf(stderr, "%s: Error opening dir %s %s\n", programName, directoryFullPath, strerror(errno));
+    }
+}
+
+void NewProcess(char* filePath){
+    pid_t pid;
+
+    pid = fork();
+
+    if(pid == 0)
+    {
+        ProcessFile(filePath, curr_processes_amount);
+        exit(0);
+    }else if (pid == -1){
+        fprintf(stderr, "%s: Fork failed %s\n", programName, strerror(errno));
     }
 }
 
