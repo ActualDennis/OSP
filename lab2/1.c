@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <time.h>
 
+#define COMPARE_BUFFER_SIZE 81920
+
 typedef struct dirent dirent;
 
 static int minSize;
@@ -18,7 +20,7 @@ void FindDuplicates(char *directoryFullPath, arraylist **listHead);
 
 int IsDots(char *name);
 
-int CompareFiles(FILE *first, FILE *second);
+int CompareFiles(FILE *first, FILE *second, int bufferSize);
 
 static char *programName;
 
@@ -98,7 +100,7 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            int res = CompareFiles(firstStream, secondStream);
+            int res = CompareFiles(firstStream, secondStream, COMPARE_BUFFER_SIZE);
             if (res)
             {
                 printf("%s %s\n", firstFName, secondFName);
@@ -208,25 +210,31 @@ void FindDuplicates(char *directoryFullPath, arraylist **listHead)
     }
 }
 
-int CompareFiles(FILE *first, FILE *second)
+int CompareFiles(FILE *first, FILE *second, int bufferSize)
 {
-    char ch1 = getc(first);
-    char ch2 = getc(second);
+    char* firstBuffer = calloc(1, bufferSize);
+    char* secondBuffer = calloc(1, bufferSize);
+    size_t bytesReadFirst = 0;
+    size_t bytesReadSecond = 0;
 
-    while (ch1 != EOF && ch2 != EOF)
+    while (1)
     {
-        if (ch1 != ch2)
-        {
+        bytesReadFirst = fread(firstBuffer, 1, bufferSize, first );
+        bytesReadSecond = fread(secondBuffer, 1, bufferSize, second );
+
+        if(bytesReadFirst != bytesReadSecond){
             return 0;
         }
 
-        // fetching character until end of file
-        ch1 = getc(first);
-        ch2 = getc(second);
+        if((bytesReadFirst == 0) && (bytesReadSecond == 0)){
+            return 1;
+        }
+
+        if(memcmp(firstBuffer, secondBuffer, bytesReadFirst)){
+            return 0;
+        }
     }
 
-    if ((ch1 == EOF) && (ch2 == EOF))
-        return 1;
 }
 
 int IsDots(char *name)

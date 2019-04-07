@@ -131,7 +131,7 @@ void CalculateFileBits(FILE* fStream, char* fileName, int bufferSize){
     char* buffer = calloc(1, bufferSize);
 
     while(1){
-        size_t bytesRead = fread(buffer, 1, 1024, fStream );
+        size_t bytesRead = fread(buffer, 1, bufferSize, fStream );
 
         if(bytesRead == 0)
             break;
