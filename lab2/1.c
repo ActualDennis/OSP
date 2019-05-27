@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <time.h>
 
-#define COMPARE_BUFFER_SIZE 81920
+#define COMPARE_BUFFER_SIZE 1024*1024
 
 typedef struct dirent dirent;
 
@@ -112,9 +112,6 @@ int main(int argc, char *argv[])
 
         fclose(firstStream);
     }
-
-    printf("\n%d\n", result);
-    printf("\n%d\n", errors);
 }
 
 void allocAndSetNewValue(char **dest, char **newValue)
@@ -234,7 +231,9 @@ int CompareFiles(FILE *first, FILE *second, int bufferSize)
             return 0;
         }
     }
-
+    
+    free(firstBuffer);
+    free(secondBuffer);
 }
 
 int IsDots(char *name)

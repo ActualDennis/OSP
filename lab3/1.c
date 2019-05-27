@@ -10,7 +10,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define FILE_BUFFER_SIZE 80196
+#define FILE_BUFFER_SIZE 81920
 
 typedef struct dirent dirent;
 
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]){
 
     gettimeofday(&tv2, NULL);
 
-  //  printf ("Total time = %f seconds\n", (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec));
+   // printf ("Total time = %f seconds\n", (double) (tv2.tv_usec - tv1.tv_usec) / 1000000 + (double) (tv2.tv_sec - tv1.tv_sec));
 }
 
 void ProcessFile(char* fileName, int processIndex){
@@ -123,16 +123,17 @@ void CalculateFileBits(FILE* fStream, char* fileName, int bufferSize){
 
         bytesReadTotal += bytesRead;
 
-        if(feof(fStream)){ //exclude null byte at the end.
-            if(ZeroesAmount != 0){
-                ZeroesAmount -= 8;
-                --bytesReadTotal;
-            }
-            break;
-        }
+        // if(feof(fStream)){ //exclude null byte at the end.
+        //     if(ZeroesAmount != 0){
+        //         ZeroesAmount -= 8;
+        //         --bytesReadTotal;
+        //     }
+        //     break;
+        // }
     }
 
     printf("%d %s %d 1:%d 0:%d \n", getpid(), fileName, bytesReadTotal, OnesAmount, ZeroesAmount);
+    free(buffer);
 }
 
 void allocAndSetNewValue(char** dest, char** newValue){
@@ -208,8 +209,12 @@ void FindFiles(char* directoryFullPath){
                     ++killed;
                 }
 
-                if(!killed){
-                    wait(NULL);
+                errno = 0;
+
+                if((!killed) && (curr_processes_amount != 0)){
+                    int stat = 0;
+                    wait(&stat);
+                    --curr_processes_amount;
                 }
 
                 curr_processes_amount -= killed;

@@ -65,7 +65,7 @@ int get_current_time()
 {
     struct timeval te; 
     gettimeofday(&te, NULL); 
-    return te.tv_usec/1000;
+    return te.tv_usec / 1000;
 }
 
 void write_pid(int num, pid_t pid){
@@ -186,6 +186,7 @@ void handle_pr1(int signo){
             exit(0);
         } else{  
             kill(-get_pid(2), SIGUSR1);
+            print_info(1,1);
             sent_signals1 += 4;
         }
     }
@@ -245,6 +246,7 @@ void handle_pr5(int signo){
     if(signo == SIGUSR1){
         print_info(5,0);
         kill(-get_pid(6), SIGUSR1);
+        print_info(5,1);
         sent_signals5 += 3;
     }
     if (signo == SIGTERM){       
@@ -294,6 +296,7 @@ void handle_pr8(int signo){
     if(signo == SIGUSR1){
         print_info(8,0);
         kill(get_pid(1), SIGUSR1);
+        print_info(8,1);
         sent_signals8++;
     }
     if (signo == SIGTERM){
@@ -476,6 +479,7 @@ int main(int args, char **argv)
         
         while(1);
     }else{
+        //main process should wait for child to complete.
         int status;
         pid_t wpid;
         while ((wpid = wait(&status)) > 0);
