@@ -1,0 +1,8 @@
+*.bin
+*.ipch
+*.obj
+*.pdb
+*.tlog
+*.pdb
+*.aps
+*.vs
