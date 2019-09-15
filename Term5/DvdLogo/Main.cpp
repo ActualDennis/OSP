@@ -1,4 +1,6 @@
 #include "framework.h"
+#include "Main.h"
+#include "BitmapPainter.h"
 #include "DvdLogo.h"
 #include <iostream>
 #define MAX_LOADSTRING 100
@@ -13,8 +15,9 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-HBITMAP hImage;
-BITMAP bImage;
+
+BitmapPainter* painter;
+DvdLogo* dvdLogo;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -28,8 +31,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
     LoadStringW(hInstance, IDC_WINDOWSPROJECT1, szWindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
-	hImage = LoadBitmapW(hInstance, MAKEINTRESOURCE(IDB_BITMAP2));
-	GetObject(hImage, sizeof(bImage), &bImage);
 
     // Perform application initialization:
     if (!InitInstance (hInstance, nCmdShow))
@@ -82,6 +83,21 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassExW(&wcex);
 }
 
+bool InitClasses(HINSTANCE hInstance, HWND hWindow) {
+	auto hImg = LoadBitmapW(hInstance, MAKEINTRESOURCE(IDB_BITMAP2));
+
+	if (!hImg) {
+		return false;
+	}
+
+	BITMAP bImg;
+	GetObject(hImg, sizeof(bImg), &bImg);
+
+	painter = new BitmapPainter(hWindow, bImg, hImg);
+	dvdLogo = new DvdLogo(hWindow, 30, 30, 123, 182);
+	return true;
+}
+
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
 //
@@ -103,9 +119,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    {
       return FALSE;
    }
-   SetTimer(hWnd, NULL, 1, NULL);
+   SetTimer(hWnd, NULL, 15, NULL);
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
+
+   if (!InitClasses(hInstance, hWnd)) {
+	   return FALSE;
+   }
 
    return TRUE;
 }
@@ -120,12 +140,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - post a quit message and return
 //
 //
-LONG    x = 1;
-LONG    y = 1;
-LONG step = 5;
-LONG xDirection = 0;
-RECT oldRect;
-void BouncingMovement(HWND hWnd, HDC hdc);
+bool BouncingModeEnabled = false;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -149,12 +164,46 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-			BouncingMovement(hWnd, hdc);
             EndPaint(hWnd, &ps);
         }
         break;
+	case WM_MOUSEWHEEL:
+	{
+		int key = GET_KEYSTATE_WPARAM(wParam);
+		int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+
+		if (delta > 0) {
+			if (key == MK_SHIFT) {
+				dvdLogo->Move(Right);
+			}
+			else {
+				dvdLogo->Move(Top);
+			}
+		}
+		else {
+			if (key == MK_SHIFT) {
+				dvdLogo->Move(Left);
+			}
+			else {
+				dvdLogo->Move(Bottom);
+			}
+		}
+	}
+	case WM_KEYDOWN: {
+		int key = GET_KEYSTATE_WPARAM(wParam);
+
+		if (key == VK_TAB)
+		{
+			BouncingModeEnabled = !BouncingModeEnabled;
+		}
+	}
+
 	case WM_TIMER: {
-		InvalidateRect(hWnd, &oldRect, FALSE);
+		if (BouncingModeEnabled) {
+			dvdLogo->BouncingMovement();
+		}
+
+		painter->PaintBitmap(hWnd, dvdLogo->xPos, dvdLogo->yPos);
 		break;
 	}
     case WM_DESTROY:
@@ -164,118 +213,4 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
-}
-LONG RectWidth = 182;
-LONG RectHeight = 123;
-LONG xSpeed = 1;
-LONG ySpeed = 1;
-
-void PaintBitmap(HWND hWnd, HDC hdc, int x, int y);
-
-void BouncingMovement(HWND hWnd, HDC hdc) {
-	RECT windowRect;
-
-	if (GetWindowRect(hWnd, &windowRect)) {
-		int width = windowRect.right - windowRect.left;
-		int height = windowRect.bottom - windowRect.top;
-
-		if ((x + RectWidth) >= width || x <= 0) {
-			xSpeed = -xSpeed;
-		}
-
-		if ((y + RectHeight) >= height || y <= 0) {
-			ySpeed = -ySpeed;
-		}
-
-		x += xSpeed;
-		y += ySpeed;
-
-	}
-	oldRect = { x, y, x + RectWidth, y + RectHeight };
-	PaintBitmap(hWnd, hdc, x, y);
-}
-
-void PaintBitmap(HWND hWnd, HDC hdc, int x, int y) {
-	/*HDC             hdcMem;
-	HGDIOBJ         oldBitmap;
-
-	hdcMem = CreateCompatibleDC(hdc);
-	oldBitmap = SelectObject(hdcMem, hImage);
-
-	BitBlt(hdc, x, y, bImage.bmWidth, bImage.bmHeight, hdcMem, 0, 0, SRCCOPY);
-
-	SelectObject(hdcMem, oldBitmap);
-	DeleteDC(hdcMem);*/
-
-	RECT rc;
-	HDC hdcMem;
-	HBITMAP hbmMem;
-	HGDIOBJ hbmOld;
-	HBRUSH hbrBkGnd;
-
-	//
-	// Get the size of the client rectangle.
-	//
-
-	GetClientRect(hWnd, &rc);
-
-	//
-	// Create a compatible DC.
-	//
-
-	hdcMem = CreateCompatibleDC(hdc);
-
-	//
-	// Create a bitmap big enough for our client rectangle.
-	//
-
-	hbmMem = CreateCompatibleBitmap(hdc,
-		rc.right - rc.left,
-		rc.bottom - rc.top);
-
-	//
-	// Select the bitmap into the off-screen DC.
-	//
-
-	hbmOld = SelectObject(hdcMem, hbmMem);
-
-	//
-	// Erase the background.
-	//
-
-	hbrBkGnd = CreateSolidBrush(GetSysColor(COLOR_WINDOW));
-	FillRect(hdcMem, &rc, hbrBkGnd);
-	DeleteObject(hbrBkGnd);
-
-	//
-	// Render the image into the offscreen DC.
-	//
-	HDC             dvdHdcMem;
-	HGDIOBJ         oldBitmap;
-
-	dvdHdcMem = CreateCompatibleDC(hdcMem);
-	oldBitmap = SelectObject(dvdHdcMem, hImage);
-
-	BitBlt(hdcMem, x, y, bImage.bmWidth, bImage.bmHeight, dvdHdcMem, 0, 0, SRCCOPY);
-
-	SelectObject(dvdHdcMem, oldBitmap);
-	DeleteDC(dvdHdcMem);
-	//
-	// Blt the changes to the screen DC.
-	//
-
-	BitBlt(hdc,
-		rc.left, rc.top,
-		rc.right - rc.left, rc.bottom - rc.top,
-		hdcMem,
-		0, 0,
-		SRCCOPY);
-
-	//
-	// Done with off-screen bitmap and DC.
-	//
-
-	SelectObject(hdcMem, hbmOld);
-	DeleteObject(hbmMem);
-	DeleteDC(hdcMem);
 }

@@ -25,6 +25,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DvdLogo.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BitmapPainter.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -54,7 +60,13 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="DvdLogo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BitmapPainter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
