@@ -2,6 +2,7 @@
 #include "Main.h"
 #include "BitmapPainter.h"
 #include "DvdLogo.h"
+#include "windowsx.h"
 #include <iostream>
 #define MAX_LOADSTRING 100
 
@@ -94,7 +95,7 @@ bool InitClasses(HINSTANCE hInstance, HWND hWindow) {
 	GetObject(hImg, sizeof(bImg), &bImg);
 
 	painter = new BitmapPainter(hWindow, bImg, hImg);
-	dvdLogo = new DvdLogo(hWindow, 30, 30, 123, 182);
+	dvdLogo = new DvdLogo(hWindow, 10, 10, 123, 182);
 	return true;
 }
 
@@ -119,7 +120,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    {
       return FALSE;
    }
-   SetTimer(hWnd, NULL, 15, NULL);
+   SetTimer(hWnd, NULL, 1, NULL);
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
@@ -188,6 +189,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				dvdLogo->Move(Bottom);
 			}
 		}
+		break;
+	}
+	case WM_LBUTTONDOWN: {
+		dvdLogo->OnMouseClicked();
+		break;
+	}
+	case WM_LBUTTONUP: {
+		//dvdLogo->OnMouseClicked();
+		break;
+	}
+	case WM_MOUSEMOVE: {
+		int x = GET_X_LPARAM(lParam);
+		int y = GET_Y_LPARAM(lParam);
+
+		dvdLogo->OnMouseMove(x, y);
+		break;
 	}
 	case WM_KEYDOWN: {
 		int key = GET_KEYSTATE_WPARAM(wParam);
@@ -196,11 +213,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			BouncingModeEnabled = !BouncingModeEnabled;
 		}
+		break;
 	}
-
 	case WM_TIMER: {
 		if (BouncingModeEnabled) {
 			dvdLogo->BouncingMovement();
+		}
+		else {
+			dvdLogo->Move();
 		}
 
 		painter->PaintBitmap(hWnd, dvdLogo->xPos, dvdLogo->yPos);

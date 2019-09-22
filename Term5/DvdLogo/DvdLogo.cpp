@@ -37,6 +37,54 @@ void DvdLogo::Move(Direction dir)
 	}
 }
 
+void DvdLogo::Move() {
+	RECT windowRect;
+
+	if (GetWindowRect(hWindow, &windowRect)) {
+		int width = windowRect.right - windowRect.left;
+		int height = windowRect.bottom - windowRect.top;
+
+		if (xPos + RectWidth >= width) {
+			xDest = width - width / 5 - RectWidth;
+		}
+		else if (xPos <= 0) {
+			xDest = width / 5 + RectWidth;
+		}
+
+		if ((yPos + RectHeight) >= height) {
+			yDest = height - height / 4 - RectHeight;
+		}
+		else if (yPos <= 0) {
+			yDest = height / 4 + RectHeight;
+		}
+	}
+
+	xStep = (int)((xDest - xPos))  * 0.15;
+	yStep = (int)((yDest - yPos)) * 0.15;
+
+	xPos += xStep;
+	yPos += yStep;
+}
+
+void DvdLogo::OnMouseMove(int x, int y) {
+	if (!this->MouseMoveActivated) {
+		return;
+	}
+
+	xDest = x * 1.2;
+	yDest = y * 1.2;
+}
+
+void DvdLogo::OnMouseClicked()
+{
+	this->MouseMoveActivated = !this->MouseMoveActivated;
+
+	/*if (!this->MouseMoveActivated) {
+		xDest *= 1.5;
+		yDest *= 1.5;
+	}*/
+}
+
 void DvdLogo::BouncingMovement()
 {
 	RECT windowRect;

@@ -23,6 +23,9 @@ public :
 	}
 
 	void Move(Direction dir);
+	void Move();
+	void OnMouseMove(int x, int y);
+	void OnMouseClicked();
 	void BouncingMovement();
 	int xPos = 50;
 	int yPos = 50;
@@ -32,4 +35,9 @@ private:
 	HWND hWindow;
 	long RectHeight;
 	long RectWidth;
+	bool MouseMoveActivated = true;
+	int xDest = 0;
+	int yDest = 0;
+	int xStep = 0;
+	int yStep = 0;
 };
